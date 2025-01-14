@@ -18,7 +18,7 @@ var ErrCannotMerge = fmt.Errorf("unable to merge vulnerability matches")
 type Match struct {
 	Vulnerability vulnerability.Vulnerability // The vulnerability details of the match.
 	Package       pkg.Package                 // The package used to search for a match.
-	Details       Details                     // all ways in which how this particular match was made.
+	Details       Details                     // all the ways this particular match was made.
 }
 
 // String is the string representation of select match fields.
@@ -26,16 +26,14 @@ func (m Match) String() string {
 	return fmt.Sprintf("Match(pkg=%s vuln=%q types=%q)", m.Package, m.Vulnerability.String(), m.Details.Types())
 }
 
-func (m Match) Summary() string {
-	return fmt.Sprintf("vuln=%q matchers=%s", m.Vulnerability.ID, m.Details.Matchers())
-}
-
 func (m Match) Fingerprint() Fingerprint {
 	return Fingerprint{
-		vulnerabilityID:        m.Vulnerability.ID,
-		vulnerabilityNamespace: m.Vulnerability.Namespace,
-		vulnerabilityFixes:     strings.Join(m.Vulnerability.Fix.Versions, ","),
-		packageID:              m.Package.ID,
+		coreFingerprint: coreFingerprint{
+			vulnerabilityID:        m.Vulnerability.ID,
+			vulnerabilityNamespace: m.Vulnerability.Namespace,
+			packageID:              m.Package.ID,
+		},
+		vulnerabilityFixes: strings.Join(m.Vulnerability.Fix.Versions, ","),
 	}
 }
 
@@ -77,11 +75,7 @@ func (m *Match) Merge(other Match) error {
 	}
 
 	// for stable output
-	sort.Slice(m.Details, func(i, j int) bool {
-		a := m.Details[i]
-		b := m.Details[j]
-		return strings.Compare(a.ID(), b.ID()) < 0
-	})
+	sort.Sort(m.Details)
 
 	// retain all unique CPEs for consistent output
 	m.Vulnerability.CPEs = cpe.Merge(m.Vulnerability.CPEs, other.Vulnerability.CPEs)

@@ -1,22 +1,25 @@
 {
-  "$schema": "http://cyclonedx.org/schema/bom-1.4.schema.json",
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
   "bomFormat": "CycloneDX",
-  "specVersion": "1.4",
-  "serialNumber": "urn:uuid:102e3928-5e9e-4352-bdfe-b9eb64b837f8",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:596cd775-e2a5-4932-a807-d1abfe4d804c",
   "version": 1,
   "metadata": {
-    "timestamp": "2023-05-04T09:41:30-04:00",
-    "tools": [
-      {
-        "vendor": "anchore",
-        "name": "grype",
-        "version": "[not provided]"
-      }
-    ]
+    "timestamp": "2024-12-04T15:30:43+02:00",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "author": "anchore",
+          "name": "grype",
+          "version": "[not provided]"
+        }
+      ]
+    }
   },
   "components": [
     {
-      "bom-ref": "76bd1479d016ce8f",
+      "bom-ref": "9baa2db122fea516",
       "type": "library",
       "name": "package-1",
       "version": "1.1.1",
@@ -27,17 +30,46 @@
           "value": "rpm"
         },
         {
+          "name": "syft:package:metadataType",
+          "value": "rpm-db-entry"
+        },
+        {
           "name": "syft:location:0:path",
           "value": "/foo/bar/somefile-1.txt"
+        },
+        {
+          "name": "syft:metadata:epoch",
+          "value": "2"
+        },
+        {
+          "name": "syft:metadata:size",
+          "value": "0"
+        },
+        {
+          "name": "syft:metadata:sourceRpm",
+          "value": "some-source-rpm"
         }
       ]
     },
     {
-      "bom-ref": "3199ef19b28ce437",
+      "bom-ref": "pkg:deb/package-2@2.2.2?package-id=7bb53d560434bc7f",
       "type": "library",
       "name": "package-2",
       "version": "2.2.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        },
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
       "cpe": "cpe:2.3:a:anchore:engine:2.2.2:*:*:python:*:*:*:*",
+      "purl": "pkg:deb/package-2@2.2.2",
       "properties": [
         {
           "name": "syft:package:type",
@@ -52,7 +84,7 @@
   ],
   "vulnerabilities": [
     {
-      "bom-ref": "urn:uuid:e082487a-f943-4d4a-8f7c-020d4b0838c4",
+      "bom-ref": "urn:uuid:2fe19024-858a-4864-9a9b-b52f105e992c",
       "id": "CVE-1999-0001",
       "source": {},
       "references": [
@@ -73,12 +105,12 @@
       "advisories": [],
       "affects": [
         {
-          "ref": "96699b00fe3004b4"
+          "ref": "9baa2db122fea516"
         }
       ]
     },
     {
-      "bom-ref": "urn:uuid:3d8b0870-5c57-4063-b30d-56102dd49ec1",
+      "bom-ref": "urn:uuid:1082956b-2ee6-48e4-9d92-183d492a3be8",
       "id": "CVE-1999-0002",
       "source": {},
       "references": [
@@ -99,7 +131,7 @@
       "advisories": [],
       "affects": [
         {
-          "ref": "b4013a965511376c"
+          "ref": "pkg:deb/package-2@2.2.2?package-id=7bb53d560434bc7f"
         }
       ]
     }

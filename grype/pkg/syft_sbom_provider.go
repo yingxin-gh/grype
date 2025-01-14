@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,17 +13,9 @@ import (
 
 	"github.com/anchore/grype/internal"
 	"github.com/anchore/grype/internal/log"
-	"github.com/anchore/syft/syft"
+	"github.com/anchore/syft/syft/format"
 	"github.com/anchore/syft/syft/sbom"
 )
-
-type errEmptySBOM struct {
-	sbomFilepath string
-}
-
-func (e errEmptySBOM) Error() string {
-	return fmt.Sprintf("SBOM file is empty: %s", e.sbomFilepath)
-}
 
 func syftSBOMProvider(userInput string, config ProviderConfig) ([]Package, Context, *sbom.SBOM, error) {
 	s, err := getSBOM(userInput)
@@ -30,8 +23,7 @@ func syftSBOMProvider(userInput string, config ProviderConfig) ([]Package, Conte
 		return nil, Context{}, nil, err
 	}
 
-	catalog := s.Artifacts.Packages
-	catalog = removePackagesByOverlap(catalog, s.Relationships)
+	catalog := removePackagesByOverlap(s.Artifacts.Packages, s.Relationships, s.Artifacts.LinuxDistribution)
 
 	return FromCollection(catalog, config.SynthesisConfig), Context{
 		Source: &s.Source,
@@ -57,19 +49,19 @@ func getSBOM(userInput string) (*sbom.SBOM, error) {
 		return nil, err
 	}
 
-	s, format, err := syft.Decode(reader)
+	s, fmtID, _, err := format.Decode(reader)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode sbom: %w", err)
 	}
 
-	if format == nil {
+	if fmtID == "" || s == nil {
 		return nil, errDoesNotProvide
 	}
 
 	return s, nil
 }
 
-func getSBOMReader(userInput string) (r io.Reader, err error) {
+func getSBOMReader(userInput string) (r io.ReadSeeker, err error) {
 	r, _, err = extractReaderAndInfo(userInput)
 	if err != nil {
 		return nil, err
@@ -78,13 +70,17 @@ func getSBOMReader(userInput string) (r io.Reader, err error) {
 	return r, nil
 }
 
-func extractReaderAndInfo(userInput string) (io.Reader, *inputInfo, error) {
+func extractReaderAndInfo(userInput string) (io.ReadSeeker, *inputInfo, error) {
 	switch {
 	// the order of cases matter
 	case userInput == "":
 		// we only want to attempt reading in from stdin if the user has not specified other
 		// options from the CLI, otherwise we should not assume there is any valid input from stdin.
-		return decodeStdin(stdinReader())
+		r, err := stdinReader()
+		if err != nil {
+			return nil, nil, err
+		}
+		return decodeStdin(r)
 
 	case explicitlySpecifyingSBOM(userInput):
 		filepath := strings.TrimPrefix(userInput, "sbom:")
@@ -98,7 +94,7 @@ func extractReaderAndInfo(userInput string) (io.Reader, *inputInfo, error) {
 	}
 }
 
-func parseSBOM(scheme, path string) (io.Reader, *inputInfo, error) {
+func parseSBOM(scheme, path string) (io.ReadSeeker, *inputInfo, error) {
 	r, err := openFile(path)
 	if err != nil {
 		return nil, nil, err
@@ -107,7 +103,7 @@ func parseSBOM(scheme, path string) (io.Reader, *inputInfo, error) {
 	return r, info, nil
 }
 
-func decodeStdin(r io.Reader) (io.Reader, *inputInfo, error) {
+func decodeStdin(r io.Reader) (io.ReadSeeker, *inputInfo, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed reading stdin: %w", err)
@@ -122,37 +118,17 @@ func decodeStdin(r io.Reader) (io.Reader, *inputInfo, error) {
 	return reader, newInputInfo("", "sbom"), nil
 }
 
-// fileHasContent returns a bool indicating whether the given file has data that could possibly be utilized in
-// downstream processing.
-func fileHasContent(f *os.File) bool {
-	if f == nil {
-		return false
-	}
-
-	info, err := f.Stat()
-	if err != nil {
-		return false
-	}
-
-	if size := info.Size(); size > 0 {
-		return true
-	}
-
-	return false
-}
-
-func stdinReader() io.Reader {
+func stdinReader() (io.Reader, error) {
 	isStdinPipeOrRedirect, err := internal.IsStdinPipeOrRedirect()
 	if err != nil {
-		log.Warnf("unable to determine if there is piped input: %+v", err)
-		return nil
+		return nil, fmt.Errorf("unable to determine if there is piped input: %w", err)
 	}
 
 	if !isStdinPipeOrRedirect {
-		return nil
+		return nil, errors.New("no input was provided via stdin")
 	}
 
-	return os.Stdin
+	return os.Stdin, nil
 }
 
 func closeFile(f *os.File) {
@@ -175,10 +151,6 @@ func openFile(path string) (*os.File, error) {
 	f, err := os.Open(expandedPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open file %s: %w", expandedPath, err)
-	}
-
-	if !fileHasContent(f) {
-		return nil, errEmptySBOM{path}
 	}
 
 	return f, nil
